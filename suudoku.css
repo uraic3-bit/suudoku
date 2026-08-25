@@ -1,0 +1,68 @@
+/* ゲーム全体をキャンバスの最大幅（450px）に合わせて中央寄せにする */
+.game-container {
+    max-width: 450px;
+    margin: 0 auto;       /* 画面の左右中央に配置 */
+    text-align: center;   /* 中のインライン要素（ボタンなど）を中央寄せ */
+}
+
+/* キャンバス自体の見た目（必要に応じて） */
+#gameCanvas {
+    display: block;
+    margin: 0 auto 15px auto; /* キャンバス自体を中央寄せし、下に隙間を作る */
+    background-color: lightskyblue; /* 背景色（確認用） */
+}
+
+#message {
+    color: red;
+    font-size: 30px;
+}
+
+/* 難易度ボタンのエリア */
+.difficulty-menu {
+    margin-bottom: 5px; /* 下との隙間 */
+}
+.difficulty-menu button {
+    margin: 0 5px; /* ボタン同士の横の隙間 */
+    width: 140px;
+    height: 30px;
+    font-size: 15px;
+    text-align: center;
+    background-color:lightskyblue;
+    color: black;
+    font-weight: bold;
+    font-family: sans-serif;
+}
+
+.controls button {
+    background-color:lightskyblue;
+    color: black;
+    font-size: 25px;
+    font-weight: bold;
+    font-family: sans-serif;
+}
+
+/* 十字キーと数字キーを包むエリア */
+.controls {
+    display: flex;
+    justify-content: center; /* 横方向の中央寄せ */
+    align-items: center;     /* 縦方向の中央寄せ */
+    gap: 30px;               /* 十字キーと数字キーの間の隙間 */
+    margin: 0 auto;
+}
+
+/* テーブル内のボタン共通スタイル（押しやすく調整） */
+table button {
+    width: 60px;
+    height: 60px;
+    /* font-size: 20px;*/
+    cursor: pointer;
+}
+
+/* テーブル自体の余計な隙間を無くす */
+table {
+    border-collapse: collapse;
+}
+td {
+    padding: 2px; /* ボタン同士の隙間 */
+    text-align: center;
+}
