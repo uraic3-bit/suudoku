@@ -16,6 +16,11 @@ const gameMode = Object.freeze({
     hard:25
 });
 
+/** 数値からモード名（文字列）を取得する関数 */
+function getModeName(value) {
+    return Object.keys(gameMode).find(key => gameMode[key] === value);
+}
+
 /** 数値設定ボタン **/
 const NumberSelection = Object.freeze({
     zero:0,
@@ -131,11 +136,14 @@ function setPanel(mode){
                 if(checkGroup(workRandomArray[randomNumber],groupRangeNumber,groupVirticalNumber,groupHorizonalNumber)) {
                     continuationFlg = false;
                     correctNumber = workRandomArray[randomNumber];
+                    /*
                     randomArray.forEach((value,index,array)=>{
                         if(value === correctNumber){
                             array.splice(index,1);
                         }
-                    })
+                    })*/
+                    // 配列から correctNumber と一致しないものだけを残す（＝一致するものを削除する）
+                    randomArray = randomArray.filter(value => value !== correctNumber);
                 } else {
                     workRandomArray.splice(randomNumber,1);
                     if (workRandomArray.length ===0){
@@ -189,20 +197,20 @@ function setPanel(mode){
     let msg;
     switch(mode){
         case gameMode.easy:
-            msg = "レベル：初級";
+            msg = "GemeMode : EASY";
             break;
         case gameMode.normal:
-            msg = "レベル：中級";
+            msg = "GemeMode : NORMAL";
             break;
         case gameMode.hard:
-            msg = "レベル：上級";
+            msg = "GameMode * HARD";
             break;
         default:
             msg = "";
             break;
     };
     
-    $("#message").text(msg);
+    //$("#message").text(msg);
 }
 
 /** グループに該当の数字が存在しないことを確認する 
@@ -217,6 +225,171 @@ function checkGroup(checkNum,grNum,gvNum,ghNum){
         }
     }
     return true;
+}
+
+// 範囲グループArray[1-9][1-9]
+let groupRangeArray = null;
+// 縦グループArray[1-9][1-9]
+let groupVirticalArray = null;
+// 横グループArray[1-9][1-9]
+let groupHorizonalArray = null;
+
+/** ソルバー（複数解チェック） 
+ * @returns{boolean}checkResult --true:単一解、false:単一解以外
+*/
+function Solver(){
+    groupRangeArray = Array.from({length:9},()=>Array(9).fill(false));
+    groupVirticalArray = Array.from({length:9},()=>Array(9).fill(false));
+    groupHorizonalArray = Array.from({length:9},()=>Array(9).fill(false));
+
+    //グループ設定
+    /** @type{Panel}val */
+    panelMap.forEach((val) => {           
+        if(val.defaultOpen) {
+            // インデックスは 0～8 なので -1 します
+            groupRangeArray[val.groupRange-1][val.correctValue-1] = true;
+            groupVirticalArray[val.groupVirtical-1][val.correctValue-1] = true;
+            groupHorizonalArray[val.groupHorizonal-1][val.correctValue-1] = true;
+        }
+    })
+
+    let workPanelNum = 1; //1～81パネル
+    let checkArray = Array.from({length:81},()=>1); 
+    let workPanel = null;
+    let workNum = 0;
+    let checkEndFlg = false;
+    let answerNum = 0; //回答の数
+    let actionNum = 0;
+
+    //関数定義(前のパネルに戻る)
+    const backPanel = function(){
+        while(true){
+            // 今のマスの試行数（checkArray）を1にリセットして、1マス戻る
+            checkArray[workPanelNum-1] = 1;
+            workPanelNum--;
+
+            if(workPanelNum < 1) {
+                // 1マス目より前に戻ろうとしたら、全パターン探索完了
+                checkEndFlg = true;
+                break;
+            }
+
+            workPanel = panelMap.get(workPanelNum);
+
+            // 固定マスの場合は、さらに前のマスへとループを継続（バックトラック）
+            if(workPanel.defaultOpen) {
+                continue; 
+            }
+
+            //if(!workPanel.defaultOpen) {
+            workNum = checkArray[workPanelNum-1];
+            groupRangeArray[workPanel.groupRange-1][workNum-1] = false;
+            groupVirticalArray[workPanel.groupVirtical-1][workNum-1] = false;
+            groupHorizonalArray[workPanel.groupHorizonal-1][workNum-1] = false;
+
+            // 試していた数字が9だった場合は、このマスではこれ以上試せないので、さらに1マス戻る
+            if(checkArray[workPanelNum-1] == 9){
+                checkArray[workPanelNum-1] = 1;
+            } else{
+                // 1～8だった場合は、数字を1つ進めて、バックトラック終了（メインループへ復帰）
+                checkArray[workPanelNum-1] = checkArray[workPanelNum-1] + 1;
+                break;
+            }
+        }
+    };
+
+    //チェックループ
+    while(!checkEndFlg){
+        workPanel = panelMap.get(workPanelNum);
+
+        // 固定マスの場合はチェックをスキップして次のマスへ
+        if(workPanel.defaultOpen){
+            if(workPanelNum == 81) {
+                answerNum ++;
+                // 2つ見つかったら即終了
+                if(answerNum>=2){ 
+                    break;
+                }
+                backPanel();
+            } else {
+                workPanelNum++;
+            }
+            continue;
+        }
+
+        //チェック
+        workNum = checkArray[workPanelNum-1];
+        if( groupRangeArray[workPanel.groupRange-1][workNum-1] ||
+            groupVirticalArray[workPanel.groupVirtical-1][workNum-1] ||
+            groupHorizonalArray[workPanel.groupHorizonal-1][workNum-1]){
+                //NG
+                if(workNum == 9){
+                    // 9まで試してダメなら前のマスに戻る
+                    backPanel();
+                } else {
+                    // 1～8なら次の数字を試す
+                    checkArray[workPanelNum-1] = checkArray[workPanelNum-1] + 1;
+                }
+            } else {
+                //OK
+                // 仮配置のフラグを立てる
+                groupRangeArray[workPanel.groupRange-1][workNum-1] = true;
+                groupVirticalArray[workPanel.groupVirtical-1][workNum-1] = true;
+                groupHorizonalArray[workPanel.groupHorizonal-1][workNum-1] = true;
+
+                if(workPanelNum == 81) {
+                    answerNum ++;
+                    if(answerNum>=2){
+                        break;
+                    }
+
+                     // 1つ目の解なら、フラグを戻してからバックトラック
+                    groupRangeArray[workPanel.groupRange-1][workNum-1] = false;
+                    groupVirticalArray[workPanel.groupVirtical-1][workNum-1] = false;
+                    groupHorizonalArray[workPanel.groupHorizonal-1][workNum-1] = false;
+                    backPanel();
+                } else {
+                    workPanelNum++; // 次のマスへ進む
+                }
+            }            
+    }
+    if(answerNum == 1) {
+        return true;   
+    } else {
+        return false;
+    }
+}
+
+//ソルバー実行中フラグ
+let solverRunning = false;
+
+/** 1フレーム分だけ処理をブラウザに譲るための関数 */
+const delay = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+/** 最適解が見つかるまで繰り返す */
+async function SolverLoop(mode){
+    if(solverRunning){return};
+    solverRunning = true;
+
+    $("#message").text("Now Loading...");
+    setPanel(mode);
+
+    while(solverRunning && !Solver()){
+        randomNumber = 0;
+        panelMap = new Map();
+        randomArray = null;
+        correctNumber = null;
+        setPanel(mode);
+        await delay();
+    }
+
+    solverRunning = false;
+    $("#message").text("GameMode : " + getModeName(mode));
+    
+}
+
+function SolverStop(){
+    solverRunning = false;
 }
 
 /** 完了かチェックする
@@ -367,7 +540,6 @@ function itemActiveCheck(){
     return true;
 }
 
-
 let canvas = null;
 /** ＠type {CanvasRect} */ 
 let ctx = null;
@@ -393,9 +565,9 @@ $(function(){
     ctx.textBaseline = "middle";
 
     //イベントハンドラー
-    $("#easy").bind("click",function(){setPanel(gameMode.easy);});
-    $("#normal").bind("click",function(){setPanel(gameMode.normal);});
-    $("#hard").bind("click",function(){setPanel(gameMode.hard);});
+    $("#easy").bind("click",async function(){SolverStop();await delay();SolverLoop(gameMode.easy);});
+    $("#normal").bind("click",async function(){SolverStop();await delay();SolverLoop(gameMode.normal);});
+    $("#hard").bind("click",async function(){SolverStop();await delay();SolverLoop(gameMode.hard);});
     $("#answer").bind("click",function(){itemActiveCheck() && panelUpdate(true)});
     $("#up").bind("click",function(){itemActiveCheck() && moveCursor(CursorSelection.up)});
     $("#down").bind("click",function(){itemActiveCheck() && moveCursor(CursorSelection.down)});
