@@ -13,7 +13,7 @@ const gameMode = Object.freeze({
     /** 中級*/
     normal:30,
     /** 上級*/
-    hard:25
+    hard:27
 });
 
 /** 数値からモード名（文字列）を取得する関数 */
@@ -110,9 +110,10 @@ function getDefaultOpenNumberArray(openCount){
     return returnArray;
 }
 
-/**
+/**　パネル作成
      @param {gameMode} mode
-    */
+     @returns{boolean} --True：作成成功、False：作成失敗
+*/
 function setPanel(mode){
     //デフォルトオープンパネル配列取得
     const openNumbers = getDefaultOpenNumberArray(mode);
@@ -130,18 +131,11 @@ function setPanel(mode){
             let continuationFlg = true;
             let workRandomArray = randomArray.slice();
             
-
             while(continuationFlg){
                 randomNumber = Math.floor(Math.random() * workRandomArray.length);
                 if(checkGroup(workRandomArray[randomNumber],groupRangeNumber,groupVirticalNumber,groupHorizonalNumber)) {
                     continuationFlg = false;
                     correctNumber = workRandomArray[randomNumber];
-                    /*
-                    randomArray.forEach((value,index,array)=>{
-                        if(value === correctNumber){
-                            array.splice(index,1);
-                        }
-                    })*/
                     // 配列から correctNumber と一致しないものだけを残す（＝一致するものを削除する）
                     randomArray = randomArray.filter(value => value !== correctNumber);
                 } else {
@@ -150,11 +144,9 @@ function setPanel(mode){
                         randomArray = [1,2,3,4,5,6,7,8,9];
                         panelMap.clear();
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        setPanel(mode);
-                        return;
+                        return false;
                     }
                 }
-                
             }
 
             panelMap.set(j+(i-1)*9, new Panel(
@@ -174,13 +166,22 @@ function setPanel(mode){
                 false,
                 j+(i-1)*9
             ));
-            //ライン描画（内枠）
-            ctx.strokeStyle = "gray";
-            ctx.lineWidth = 4;
-            ctx.strokeRect(startX,startY,panelSize.width,panelSize.height);
         }
     }
-    
+    //カーソル設定
+    panelMap.get(1).onCursor=true;
+    return true;
+}
+
+/**描画 */
+function drawLine(){
+    //ライン描画（内枠）
+    for (let i = 1; i <= 8; i++) {
+        ctx.strokeStyle = "gray";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(i*panelSize.width,0,i*panelSize.width,9*panelSize.height);
+        ctx.strokeRect(0,i*panelSize.height,9*panelSize.width,i*panelSize.height);
+    }
     //ライン描画（外枠）
     for (let i = 1; i <= 3; i++) {
         for (let j = 1; j <= 3; j++) {
@@ -189,28 +190,8 @@ function setPanel(mode){
             ctx.strokeRect((i-1)*panelSize.width*3,(j-1)*panelSize.height*3,panelSize.width*3,panelSize.height*3);
         }
     }
-    //カーソル設定
-    panelMap.get(1).onCursor=true;
+    //パネル更新
     panelUpdate();
-
-    //メッセージ更新
-    let msg;
-    switch(mode){
-        case gameMode.easy:
-            msg = "GemeMode : EASY";
-            break;
-        case gameMode.normal:
-            msg = "GemeMode : NORMAL";
-            break;
-        case gameMode.hard:
-            msg = "GameMode * HARD";
-            break;
-        default:
-            msg = "";
-            break;
-    };
-    
-    //$("#message").text(msg);
 }
 
 /** グループに該当の数字が存在しないことを確認する 
@@ -371,23 +352,40 @@ async function SolverLoop(mode){
     if(solverRunning){return};
     solverRunning = true;
 
+    panelMap.clear();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     $("#message").text("Now Loading...");
-    setPanel(mode);
+    await delay();
+    SetPanelLoop(mode);
 
     while(solverRunning && !Solver()){
         randomNumber = 0;
         panelMap = new Map();
         randomArray = null;
         correctNumber = null;
-        setPanel(mode);
+        SetPanelLoop(mode);
         await delay();
     }
 
     solverRunning = false;
-    $("#message").text("GameMode : " + getModeName(mode));
+    drawLine();
+    $("#message").text("GameMode : " + getModeName(mode).toUpperCase());
     
 }
 
+/** パネル作成が完了するまで繰り返す */
+function SetPanelLoop(mode){
+    let endFlg = false;
+    while(!endFlg){
+        randomNumber = 0;
+        panelMap = new Map();
+        randomArray = null;
+        correctNumber = null;
+        endFlg = setPanel(mode);
+    };
+}
+
+/** ソルバー停止指示 */
 function SolverStop(){
     solverRunning = false;
 }
